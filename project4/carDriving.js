@@ -6,6 +6,7 @@ let program;
 let bufferId;
 let umv; //index of model_view in shader
 let uproj; //index of proj
+let umode;
 //where the car will move
 let xoffset;
 let yoffset;
@@ -54,6 +55,7 @@ window.onload = function init() {
     gl.useProgram(program); //and we want to use that program for our rendering
     umv = gl.getUniformLocation(program, "model_view");
     uproj = gl.getUniformLocation(program, "projection");
+    umode = gl.getUniformLocation(program, "mode");
     vPosition = gl.getAttribLocation(program, "vPosition");
     vColor = gl.getAttribLocation(program, "vColor");
     vNormal = gl.getAttribLocation(program, "vNormal");
@@ -155,6 +157,7 @@ window.onload = function init() {
         }
         requestAnimationFrame(render);
     });
+    gl.uniform1i(umode, 1);
     //We'll split this off to its own function for clarity, but we need something to make a picture of
     makeCubeAndBuffer();
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -298,22 +301,22 @@ function makeCubeAndBuffer() {
     z = .6;
     cubepoints.push(new vec4(-x, -y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
     cubepoints.push(new vec4(x, -y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
     cubepoints.push(new vec4(-x, y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
     cubepoints.push(new vec4(-x, y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
     cubepoints.push(new vec4(x, -y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
     cubepoints.push(new vec4(x, y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
     //creates the car
     x = .5;
     y = .25;
@@ -495,11 +498,14 @@ function render() {
         let eye = new vec4(xoffset - Math.sin(thetaRad) * cameraDistance, yoffset + y + y + cameraHeight, zoffset - Math.cos(thetaRad) * cameraDistance, 1);
         baseLook = lookAt(eye, new vec4(xoffset, yoffset, zoffset, 1), new vec4(0, 1, 0, 0));
     }
+    gl.uniform4fv(light_color, [.7, .7, .7, 1]);
+    gl.uniform4fv(ambient_light, [.2, .2, .2, 1]);
     // -------------------------------
     // 2. Ground
     // -------------------------------
     let groundMV = baseLook;
     groundMV = groundMV.mult(rotateX(90));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.0, 1.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -508,26 +514,31 @@ function render() {
     // ----------------------------------------------------------
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(5, 0, 5)).mult(rotateY(90)).mult(scalem(5, 5, 5));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(-10, 0, 18)).mult(rotateY(90)).mult(scalem(5, 5, 5));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(-18, 0, -10)).mult(rotateY(90)).mult(scalem(5, 5, 5));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(7, 0, -20)).mult(rotateY(90)).mult(scalem(5, 5, 5));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(15, 0, 18)).mult(rotateY(90)).mult(scalem(5, 5, 5));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
@@ -537,6 +548,9 @@ function render() {
     let carMV = baseLook
         .mult(translate(xoffset, yoffset, zoffset))
         .mult(rotateY(theta));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.0, 1.0, 1.0, 1.0]); // cyan
+    //gl.vertexAttrib4fv(vSpecularColor, [1.0, 1.0, 1.0, 1.0]);       // white specular
+    //gl.vertexAttrib1f(vSpecularExponent, 15.0);
     gl.uniformMatrix4fv(umv, false, carMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLES, 6, 36);
@@ -547,6 +561,7 @@ function render() {
     secondMV = secondMV.mult(scalem(.5, 1, .25));
     //Spins head
     secondMV = secondMV.mult(rotateY(headspin));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.0, 1.0, 1.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, secondMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLES, 6, 36);
@@ -559,6 +574,7 @@ function render() {
         .mult(scalem(0.5, 0.5, 0.5))
         .mult(rotateY(90));
     gl.uniformMatrix4fv(umv, false, eyeballMV.flatten());
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
     // -------------------------------
@@ -571,6 +587,7 @@ function render() {
     if (go && right)
         wheelMV = wheelMV.mult(rotateZ(10));
     wheelMV = wheelMV.mult(translate(-x, -y, z)).mult(rotateX(wheelRotate));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
@@ -582,6 +599,7 @@ function render() {
         wheelMV = wheelMV.mult(rotateZ(10));
     wheelMV = wheelMV.mult(translate(x, -y, z)).mult(rotateX(wheelRotate))
         .mult(rotateY(180));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
@@ -589,6 +607,7 @@ function render() {
     wheelMV = carMV
         .mult(translate(-x, -y, -z))
         .mult(rotateX(wheelRotate));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
@@ -597,6 +616,7 @@ function render() {
         .mult(translate(x, -y, -z))
         .mult(rotateX(wheelRotate))
         .mult(rotateY(180));
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
