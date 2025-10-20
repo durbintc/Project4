@@ -575,6 +575,9 @@ function render() {
     let p: mat4 = perspective(zoom, canvas.clientWidth / canvas.clientHeight, 1.0, 100.0);
     gl.uniformMatrix4fv(uproj, false, p.flatten());
 
+    gl.uniform4fv(light_position, [0.0, 10.0, 0.0, 1.0]); // overhead light
+    gl.uniform4fv(light_color, [1.0, 1.0, 1.0, 1.0]);    // white light
+
     // -------------------------------
     // 1. View (Camera)
     // -------------------------------

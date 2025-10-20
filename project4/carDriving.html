@@ -39,10 +39,15 @@ main()
 	}else if (mode == 1){ // ambient only
         gl_Position = projection * model_view * vPosition;
 
+        vec4 veyepos = model_view * position;
+        vec3 L = normalize(light_position.xyz - veyepos.xyz);
+        vec3 N = normalize((model_view * vNormal).xyz);
+
         // compute ambient term
         vec4 amb = vAmbientDiffuseColor * ambient_light;
+        vec4 diff = max(dot(L, N), 0.0) * vAmbientDiffuseColor * light_color;
 
-        color = amb;
+        color = amb + diff;
 	}else if (mode == 2){
         position = vPosition;
         ambientDiffuseColor = vAmbientDiffuseColor;
