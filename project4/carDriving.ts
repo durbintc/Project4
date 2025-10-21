@@ -53,6 +53,8 @@ let carCam:boolean = false;
 
 let headspin = 0;
 
+let stationary = false;
+
 import {
     initShaders,
     vec4,
@@ -159,6 +161,9 @@ window.onload = function init() {
             case "3":
                 camera = 3;
                 break;
+            case "0":
+                stationary = !stationary;
+                break;
             //head turning
             case "z":
                 headspin += 1;
@@ -183,7 +188,7 @@ window.onload = function init() {
         requestAnimationFrame(render);
     });
 
-    gl.uniform1i(umode, 1);
+    gl.uniform1i(umode, 2);
     //We'll split this off to its own function for clarity, but we need something to make a picture of
     makeCubeAndBuffer();
 
@@ -575,8 +580,14 @@ function render() {
     let p: mat4 = perspective(zoom, canvas.clientWidth / canvas.clientHeight, 1.0, 100.0);
     gl.uniformMatrix4fv(uproj, false, p.flatten());
 
-    gl.uniform4fv(light_position, [0.0, 10.0, 0.0, 1.0]); // overhead light
-    gl.uniform4fv(light_color, [1.0, 1.0, 1.0, 1.0]);    // white light
+    if(stationary) {
+        gl.uniform4fv(light_position, [0.0, 10.0, 0.0, 1.0]); // overhead light
+        gl.uniform4fv(light_color, [1.0, 1.0, 1.0, 1.0]);    // white light
+    }
+    else{
+        gl.uniform4fv(light_position, [0.0, 0.0, 0.0, 1.0]);
+        gl.uniform4fv(light_color, [0.0, 0.0, 0.0, 1.0]);
+    }
 
     // -------------------------------
     // 1. View (Camera)
@@ -639,6 +650,7 @@ function render() {
         );
     }
 
+
     gl.uniform4fv(light_color, [.7, .7, .7, 1]);
     gl.uniform4fv(ambient_light, [.2, .2, .2, 1]);
 
@@ -648,6 +660,8 @@ function render() {
     let groundMV = baseLook;
     groundMV = groundMV.mult(rotateX(90));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.0, 1.0, 0.0, 1.0]);
+    gl.vertexAttrib4fv(vSpecularColor, [1.0, 1.0, 1.0, 1.0]);
+    gl.vertexAttrib1f(vSpecularExponent, 32.0);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
