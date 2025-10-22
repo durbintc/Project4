@@ -27,6 +27,11 @@ uniform vec4 light_position;
 uniform vec4 light_color;
 uniform vec4 ambient_light;
 
+uniform vec4 headlight_position;
+uniform vec4 headlight_direction;
+uniform vec4 headlight_color;
+uniform float headlight_cutoff;
+uniform float headlight_exponent;
 
 void
 main()
@@ -81,6 +86,11 @@ uniform vec4 light_position;
 uniform vec4 light_color;
 uniform vec4 ambient_light;
 
+uniform vec4 headlight_position;
+uniform vec4 headlight_direction;
+uniform vec4 headlight_color;
+uniform float headlight_cutoff;
+uniform float headlight_exponent;
 
 out vec4  fColor;
 
@@ -108,6 +118,27 @@ void main()
 
         if (dot(L, N) < 0.0){
             spec = vec4(0,0,0,1); //no glare beyond the horizon
+        }
+
+        vec3 F = veyepos.xyz;  // fragment position in eye space
+        vec3 S = headlight_position.xyz;  // headlight position (we'll send it in eye space from TypeScript)
+        vec3 lightDirection = normalize(headlight_direction.xyz);  // direction (also in eye space)
+
+        if (dot(lightDirection, normalize(S - F)) >= headlight_cutoff) {
+            float spotEffect = pow(dot(lightDirection, normalize(S - F)), headlight_exponent);
+
+            vec3 spotL = normalize(S - F);
+            vec4 spotDiff = ambientDiffuseColor * headlight_color * spotEffect;
+
+            vec3 spotR = reflect(-spotL, N);
+            vec4 spotSpec = pow(max(dot(spotR, V), 0.0), headlight_exponent) * specularColor * headlight_color * spotEffect;
+
+            if (dot(spotL, N) < 0.0){
+                spotSpec = vec4(0,0,0,1);
+            }
+
+            diff += spotDiff;
+            spec += spotSpec;
         }
 
         fColor = amb + diff + spec;

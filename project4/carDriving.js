@@ -41,6 +41,11 @@ let dolly = 20;
 let carCam = false;
 let headspin = 0;
 let stationary = false;
+let headlight_position;
+let headlight_direction;
+let headlight_color;
+let headlight_cutoff;
+let headlight_exponent;
 import { initShaders, vec4, flatten, perspective, translate, lookAt, rotateX, rotateY, scalem, rotateZ, toradians } from './helperfunctions.js';
 //We want some set up to happen immediately when the page loads
 window.onload = function init() {
@@ -66,9 +71,14 @@ window.onload = function init() {
     light_position = gl.getUniformLocation(program, "light_position");
     light_color = gl.getUniformLocation(program, "light_color");
     ambient_light = gl.getUniformLocation(program, "ambient_light");
+    headlight_position = gl.getUniformLocation(program, "headlight_position");
+    headlight_direction = gl.getUniformLocation(program, "headlight_direction");
+    headlight_color = gl.getUniformLocation(program, "headlight_color");
+    headlight_cutoff = gl.getUniformLocation(program, "headlight_cutoff");
+    headlight_exponent = gl.getUniformLocation(program, "headlight_exponent");
     //sets offsets to 0
     xoffset = yoffset = zoffset = 0;
-    theta = 30; //set theta to 30 so you can see more of the car on load
+    theta = 90; //set theta to 30 so you can see more of the car on load
     window.addEventListener("keydown", function (event) {
         let min = 5;
         let dollyMax = 40;
@@ -305,22 +315,22 @@ function makeCubeAndBuffer() {
     z = .6;
     cubepoints.push(new vec4(-x, -y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(x, -y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(-x, y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(-x, y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(x, -y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(x, y, z, 1));
     cubepoints.push(new vec4(0, 1, 0, 1));
-    cubepoints.push(new vec4(0.0, -1.0, 0.0, 0.0));
+    cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     //creates the car
     x = .5;
     y = .25;
@@ -469,14 +479,6 @@ function render() {
     // Projection
     let p = perspective(zoom, canvas.clientWidth / canvas.clientHeight, 1.0, 100.0);
     gl.uniformMatrix4fv(uproj, false, p.flatten());
-    if (stationary) {
-        gl.uniform4fv(light_position, [0.0, 10.0, 0.0, 1.0]); // overhead light
-        gl.uniform4fv(light_color, [1.0, 1.0, 1.0, 1.0]); // white light
-    }
-    else {
-        gl.uniform4fv(light_position, [0.0, 0.0, 0.0, 1.0]);
-        gl.uniform4fv(light_color, [0.0, 0.0, 0.0, 1.0]);
-    }
     // -------------------------------
     // 1. View (Camera)
     // -------------------------------
@@ -510,15 +512,48 @@ function render() {
         let eye = new vec4(xoffset - Math.sin(thetaRad) * cameraDistance, yoffset + y + y + cameraHeight, zoffset - Math.cos(thetaRad) * cameraDistance, 1);
         baseLook = lookAt(eye, new vec4(xoffset, yoffset, zoffset, 1), new vec4(0, 1, 0, 0));
     }
+    if (stationary) {
+        let temp = new vec4(0.0, 20.0, 0.0, 1.0);
+        gl.uniform4fv(light_position, baseLook.mult(temp)); // overhead light
+        gl.uniform4fv(light_color, [1.0, 1.0, 1.0, 1.0]); // white light
+    }
+    else {
+        gl.uniform4fv(light_position, [0.0, 0.0, 0.0, 1.0]);
+        gl.uniform4fv(light_color, [0.0, 0.0, 0.0, 1.0]);
+    }
+    // Setup headlight in world space
+    let thetaRad = toradians(theta);
+    let forwardX = Math.sin(thetaRad);
+    let forwardZ = Math.cos(thetaRad);
+    let rightX = Math.cos(thetaRad);
+    let rightZ = -Math.sin(thetaRad);
+    // Headlight position in world space (front of car)
+    let headlightWorldPos = new vec4(xoffset + forwardX * .2 - rightX * .25, yoffset + 0.3, zoffset + forwardZ * .2 - rightZ * .25, 1 // w = 1 for position
+    );
+    // Headlight direction in world space
+    let headlightWorldDir = new vec4(-forwardX, .2, -forwardZ, 0 // w = 0 for direction vector
+    );
+    // Transform to eye space using the view matrix
+    let headlightEyePos = baseLook.mult(headlightWorldPos);
+    let headlightEyeDir = baseLook.mult(headlightWorldDir);
+    // Send eye-space values to shader
+    gl.uniform4fv(headlight_position, headlightEyePos);
+    gl.uniform4fv(headlight_direction, headlightEyeDir);
+    gl.uniform4fv(headlight_color, [0.2, 0.2, 0.15, 1]); // Warmer, dimmer headlight
+    gl.uniform1f(headlight_cutoff, Math.cos(toradians(20)));
+    gl.uniform1f(headlight_exponent, 25);
     gl.uniform4fv(light_color, [.7, .7, .7, 1]);
-    gl.uniform4fv(ambient_light, [.2, .2, .2, 1]);
+    gl.uniform4fv(ambient_light, [.05, .05, .05, 1]);
     // -------------------------------
     // 2. Ground
     // -------------------------------
+    let testNormal = new vec4(0, -1, 0, 0); // Your ground normal
+    let rotatedNormal = rotateX(90).mult(testNormal);
+    console.log("Ground normal after rotation:", rotatedNormal);
     let groundMV = baseLook;
     groundMV = groundMV.mult(rotateX(90));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.0, 1.0, 0.0, 1.0]);
-    gl.vertexAttrib4fv(vSpecularColor, [1.0, 1.0, 1.0, 1.0]);
+    gl.vertexAttrib4fv(vSpecularColor, [0.8, 0.8, 0.8, 1.0]);
     gl.vertexAttrib1f(vSpecularExponent, 32.0);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
