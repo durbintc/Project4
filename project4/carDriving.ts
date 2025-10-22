@@ -54,8 +54,10 @@ let carCam:boolean = false;
 let headspin = 0;
 
 let stationary = false;
+let headlight = false;
 
 let headlight_position: WebGLUniformLocation;
+let headlight2_position: WebGLUniformLocation;
 let headlight_direction: WebGLUniformLocation;
 let headlight_color: WebGLUniformLocation;
 let headlight_cutoff: WebGLUniformLocation;
@@ -104,6 +106,7 @@ window.onload = function init() {
     light_color = gl.getUniformLocation(program, "light_color");
     ambient_light = gl.getUniformLocation(program, "ambient_light");
     headlight_position = gl.getUniformLocation(program, "headlight_position");
+    headlight2_position = gl.getUniformLocation(program, "headlight2_position");
     headlight_direction = gl.getUniformLocation(program, "headlight_direction");
     headlight_color = gl.getUniformLocation(program, "headlight_color");
     headlight_cutoff = gl.getUniformLocation(program, "headlight_cutoff");
@@ -176,6 +179,9 @@ window.onload = function init() {
                 stationary = !stationary;
                 break;
             //head turning
+            case "9":
+                headlight = !headlight;
+                break;
             case "z":
                 headspin += 1;
                 break;
@@ -652,6 +658,9 @@ function render() {
         );
     }
 
+    //-------------------
+    //Overhead Light Code
+    //-------------------
     if(stationary) {
         let temp = new vec4(0.0, 20.0, 0.0, 1.0)
         gl.uniform4fv(light_position, baseLook.mult(temp)); // overhead light
@@ -662,11 +671,16 @@ function render() {
         gl.uniform4fv(light_color, [0.0, 0.0, 0.0, 1.0]);
     }
 
+    //--------------------
+    //Headlight Code
+    //--------------------
+
     // Setup headlight in world space
     let thetaRad = toradians(theta);
     let forwardX = Math.sin(thetaRad);
     let forwardZ = Math.cos(thetaRad);
 
+    // Calculate right vector (perpendicular to forward)
     let rightX = Math.cos(thetaRad);
     let rightZ = -Math.sin(thetaRad);
 
@@ -678,6 +692,14 @@ function render() {
         1  // w = 1 for position
     );
 
+    // Headlight position 2 in world space (front of car)
+    let headlight2WorldPos = new vec4(
+        xoffset + forwardX * .2 + rightX * .25,
+        yoffset + 0.3,
+        zoffset + forwardZ * .2 + rightZ * .25,
+        1  // w = 1 for position
+    )
+
 // Headlight direction in world space
     let headlightWorldDir = new vec4(
         -forwardX,
@@ -688,25 +710,31 @@ function render() {
 
 // Transform to eye space using the view matrix
     let headlightEyePos = baseLook.mult(headlightWorldPos);
+    let headlight2EyePos = baseLook.mult(headlight2WorldPos);
     let headlightEyeDir = baseLook.mult(headlightWorldDir);
 
-// Send eye-space values to shader
-    gl.uniform4fv(headlight_position, headlightEyePos);
-    gl.uniform4fv(headlight_direction, headlightEyeDir);
-    gl.uniform4fv(headlight_color, [0.2, 0.2, 0.15, 1]);  // Warmer, dimmer headlight
-    gl.uniform1f(headlight_cutoff, Math.cos(toradians(20)));
-    gl.uniform1f(headlight_exponent, 25);
+    if(headlight) {
+        // Send eye-space values to shader
+        gl.uniform4fv(headlight_position, headlightEyePos);
+        gl.uniform4fv(headlight2_position, headlight2EyePos);
+        gl.uniform4fv(headlight_direction, headlightEyeDir);
+        gl.uniform4fv(headlight_color, [0.2, 0.2, 0.15, 1]);  // Warmer, dimmer headlight
+        gl.uniform1f(headlight_cutoff, Math.cos(toradians(15)));
+        gl.uniform1f(headlight_exponent, 30);
+    }
+    else{
+        //gl.uniform4fv(headlight_position, [0,0,0,1]);
+        //gl.uniform4fv(headlight2_position, [0,0,0,1]);
+        gl.uniform4fv(headlight_color, [0,0,0,1]);
+    }
 
+    //Sets up ambient light
     gl.uniform4fv(light_color, [.7, .7, .7, 1]);
     gl.uniform4fv(ambient_light, [.05, .05, .05, 1]);
 
     // -------------------------------
     // 2. Ground
     // -------------------------------
-
-    let testNormal = new vec4(0, -1, 0, 0);  // Your ground normal
-    let rotatedNormal = rotateX(90).mult(testNormal) as vec4;
-    console.log("Ground normal after rotation:", rotatedNormal);
 
     let groundMV = baseLook;
     groundMV = groundMV.mult(rotateX(90));

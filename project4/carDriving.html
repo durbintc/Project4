@@ -28,6 +28,7 @@ uniform vec4 light_color;
 uniform vec4 ambient_light;
 
 uniform vec4 headlight_position;
+uniform vec4 headlight2_position;
 uniform vec4 headlight_direction;
 uniform vec4 headlight_color;
 uniform float headlight_cutoff;
@@ -37,23 +38,7 @@ void
 main()
 {
 	gl_Position = vec4(0, 0, 0, 1); //to make the shader compiler happy
-	if(mode == 0){ //unlit
-		color = vAmbientDiffuseColor;
-		gl_Position = projection * model_view * vPosition;
-
-	}else if (mode == 1){ // ambient only
-        gl_Position = projection * model_view * vPosition;
-
-        vec4 veyepos = model_view * position;
-        vec3 L = normalize(light_position.xyz - veyepos.xyz);
-        vec3 N = normalize((model_view * vNormal).xyz);
-
-        // compute ambient term
-        vec4 amb = vAmbientDiffuseColor * ambient_light;
-        vec4 diff = max(dot(L, N), 0.0) * vAmbientDiffuseColor * light_color;
-
-        color = amb + diff;
-	}else if (mode == 2){
+    if (mode == 2){
         position = vPosition;
         ambientDiffuseColor = vAmbientDiffuseColor;
         normal = vNormal;
@@ -87,6 +72,7 @@ uniform vec4 light_color;
 uniform vec4 ambient_light;
 
 uniform vec4 headlight_position;
+uniform vec4 headlight2_position;
 uniform vec4 headlight_direction;
 uniform vec4 headlight_color;
 uniform float headlight_cutoff;
@@ -100,12 +86,7 @@ void main()
 	vec4 diff = vec4(0,0,0,1);
 	vec4 spec = vec4(0,0,0,1);
 
-	if(mode == 0){ //Unlit
-		fColor = color;
-
-	}else if(mode == 1){ //Gouraud
-		fColor = color;
-	}else if(mode == 2){
+    if(mode == 2){
 	    vec4 veyepos = model_view * position;
         vec3 L = normalize(light_position.xyz - veyepos.xyz);
         vec3 V = normalize(-veyepos.xyz);
@@ -128,6 +109,24 @@ void main()
             float spotEffect = pow(dot(lightDirection, normalize(S - F)), headlight_exponent);
 
             vec3 spotL = normalize(S - F);
+            vec4 spotDiff = ambientDiffuseColor * headlight_color * spotEffect;
+
+            vec3 spotR = reflect(-spotL, N);
+            vec4 spotSpec = pow(max(dot(spotR, V), 0.0), headlight_exponent) * specularColor * headlight_color * spotEffect;
+
+            if (dot(spotL, N) < 0.0){
+                spotSpec = vec4(0,0,0,1);
+            }
+
+            diff += spotDiff;
+            spec += spotSpec;
+        }
+
+        vec3 S2 = headlight2_position.xyz;
+        if (dot(lightDirection, normalize(S2 - F)) >= headlight_cutoff) {
+            float spotEffect = pow(dot(lightDirection, normalize(S2 - F)), headlight_exponent);
+
+            vec3 spotL = normalize(S2 - F);
             vec4 spotDiff = ambientDiffuseColor * headlight_color * spotEffect;
 
             vec3 spotR = reflect(-spotL, N);
