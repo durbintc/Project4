@@ -34,6 +34,18 @@ uniform vec4 headlight_color;
 uniform float headlight_cutoff;
 uniform float headlight_exponent;
 
+uniform vec4 emergencyR_position;
+uniform vec4 emergencyR_direction;
+uniform vec4 emergencyR_color;
+uniform float emergencyR_cutoff;
+uniform float emergencyR_exponent;
+
+uniform vec4 emergencyB_position;
+uniform vec4 emergencyB_direction;
+uniform vec4 emergencyB_color;
+uniform float emergencyB_cutoff;
+uniform float emergencyB_exponent;
+
 void
 main()
 {
@@ -78,6 +90,18 @@ uniform vec4 headlight_color;
 uniform float headlight_cutoff;
 uniform float headlight_exponent;
 
+uniform vec4 emergencyR_position;
+uniform vec4 emergencyR_direction;
+uniform vec4 emergencyR_color;
+uniform float emergencyR_cutoff;
+uniform float emergencyR_exponent;
+
+uniform vec4 emergencyB_position;
+uniform vec4 emergencyB_direction;
+uniform vec4 emergencyB_color;
+uniform float emergencyB_cutoff;
+uniform float emergencyB_exponent;
+
 out vec4  fColor;
 
 void main()
@@ -101,43 +125,73 @@ void main()
             spec = vec4(0,0,0,1); //no glare beyond the horizon
         }
 
-        vec3 F = veyepos.xyz;  // fragment position in eye space
-        vec3 S = headlight_position.xyz;  // headlight position (we'll send it in eye space from TypeScript)
-        vec3 lightDirection = normalize(headlight_direction.xyz);  // direction (also in eye space)
+        vec3 F = headlight_position.xyz;  // flashlight position in eye space
+        vec3 S = veyepos.xyz;  // surface/fragment position in eye space
+        vec3 lightDirection = normalize(headlight_direction.xyz);
 
         if (dot(lightDirection, normalize(S - F)) >= headlight_cutoff) {
-            float spotEffect = pow(dot(lightDirection, normalize(S - F)), headlight_exponent);
+            vec3 headL = normalize(S - F);  // light direction: from light TO surface
+            vec4 headDiff = ambientDiffuseColor * headlight_color;
 
-            vec3 spotL = normalize(S - F);
-            vec4 spotDiff = ambientDiffuseColor * headlight_color * spotEffect;
+            vec3 headR = reflect(-headL, N);
+            vec4 headSpec = pow(max(dot(headR, V), 0.0), headlight_exponent) * specularColor * headlight_color;
 
-            vec3 spotR = reflect(-spotL, N);
-            vec4 spotSpec = pow(max(dot(spotR, V), 0.0), headlight_exponent) * specularColor * headlight_color * spotEffect;
-
-            if (dot(spotL, N) < 0.0){
-                spotSpec = vec4(0,0,0,1);
+            if (dot(headL, N) < 0.0){
+                headSpec = vec4(0,0,0,1);
             }
 
-            diff += spotDiff;
-            spec += spotSpec;
+            diff += headDiff;
+            spec += headSpec;
         }
 
-        vec3 S2 = headlight2_position.xyz;
-        if (dot(lightDirection, normalize(S2 - F)) >= headlight_cutoff) {
-            float spotEffect = pow(dot(lightDirection, normalize(S2 - F)), headlight_exponent);
+        vec3 F2 = headlight2_position.xyz;
+        if (dot(lightDirection, normalize(S - F2)) >= headlight_cutoff) {
+            vec3 headL = normalize(S - F2);
+            vec4 headDiff = ambientDiffuseColor * headlight_color;
 
-            vec3 spotL = normalize(S2 - F);
-            vec4 spotDiff = ambientDiffuseColor * headlight_color * spotEffect;
+            vec3 headR = reflect(-headL, N);
+            vec4 headSpec = pow(max(dot(headR, V), 0.0), headlight_exponent) * specularColor * headlight_color;
 
-            vec3 spotR = reflect(-spotL, N);
-            vec4 spotSpec = pow(max(dot(spotR, V), 0.0), headlight_exponent) * specularColor * headlight_color * spotEffect;
-
-            if (dot(spotL, N) < 0.0){
-                spotSpec = vec4(0,0,0,1);
+            if (dot(headL, N) < 0.0){
+                headSpec = vec4(0,0,0,1);
             }
 
-            diff += spotDiff;
-            spec += spotSpec;
+            diff += headDiff;
+            spec += headSpec;
+        }
+
+        vec3 erF = emergencyR_position.xyz;
+        vec3 lightDirectionR = normalize(emergencyR_direction.xyz);
+        if (dot(lightDirectionR, normalize(S - erF)) >= emergencyR_cutoff) {
+            vec3 headL = normalize(S - erF);
+            vec4 headDiff = ambientDiffuseColor * emergencyR_color;
+
+            vec3 headR = reflect(-headL, N);
+            vec4 headSpec = pow(max(dot(headR, V), 0.0), emergencyR_exponent) * specularColor * emergencyR_color;
+
+            if (dot(headL, N) < 0.0){
+                headSpec = vec4(0,0,0,1);
+            }
+
+            diff += headDiff;
+            spec += headSpec;
+        }
+
+        vec3 ebF = emergencyB_position.xyz;
+        vec3 lightDirectionB = normalize(emergencyB_direction.xyz);
+        if (dot(lightDirectionB, normalize(S - ebF)) >= emergencyB_cutoff) {
+            vec3 headL = normalize(S - ebF);
+            vec4 headDiff = ambientDiffuseColor * emergencyB_color;
+
+            vec3 headR = reflect(-headL, N);
+            vec4 headSpec = pow(max(dot(headR, V), 0.0), emergencyB_exponent) * specularColor * emergencyB_color;
+
+            if (dot(headL, N) < 0.0){
+                headSpec = vec4(0,0,0,1);
+            }
+
+            diff += headDiff;
+            spec += headSpec;
         }
 
         fColor = amb + diff + spec;

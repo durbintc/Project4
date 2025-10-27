@@ -48,13 +48,27 @@ let headlight_direction;
 let headlight_color;
 let headlight_cutoff;
 let headlight_exponent;
+let emergencyR_position;
+let emergencyR_direction;
+let emergencyR_color;
+let emergencyR_cutoff;
+let emergencyR_exponent;
+let emergencyR_theta = 0;
+let emergencyB_position;
+let emergencyB_direction;
+let emergencyB_color;
+let emergencyB_cutoff;
+let emergencyB_exponent;
+let emergencyB_theta = toradians(180);
+let emergency = false;
+let wp = 1000;
 import { initShaders, vec4, flatten, perspective, translate, lookAt, rotateX, rotateY, scalem, rotateZ, toradians } from './helperfunctions.js';
 //We want some set up to happen immediately when the page loads
 window.onload = function init() {
     //fetch reference to the canvas element we defined in the html file
     canvas = document.getElementById("gl-canvas");
     //grab the WebGL 2 context for that canvas.  This is what we'll use to do our drawing
-    gl = canvas.getContext('webgl2');
+    gl = canvas.getContext('webgl2', { antialias: true });
     if (!gl) {
         alert("WebGL isn't available");
     }
@@ -79,6 +93,16 @@ window.onload = function init() {
     headlight_color = gl.getUniformLocation(program, "headlight_color");
     headlight_cutoff = gl.getUniformLocation(program, "headlight_cutoff");
     headlight_exponent = gl.getUniformLocation(program, "headlight_exponent");
+    emergencyR_position = gl.getUniformLocation(program, "emergencyR_position");
+    emergencyR_direction = gl.getUniformLocation(program, "emergencyR_direction");
+    emergencyR_color = gl.getUniformLocation(program, "emergencyR_color");
+    emergencyR_cutoff = gl.getUniformLocation(program, "emergencyR_cutoff");
+    emergencyR_exponent = gl.getUniformLocation(program, "emergencyR_exponent");
+    emergencyB_position = gl.getUniformLocation(program, "emergencyB_position");
+    emergencyB_direction = gl.getUniformLocation(program, "emergencyB_direction");
+    emergencyB_color = gl.getUniformLocation(program, "emergencyB_color");
+    emergencyB_cutoff = gl.getUniformLocation(program, "emergencyB_cutoff");
+    emergencyB_exponent = gl.getUniformLocation(program, "emergencyB_exponent");
     //sets offsets to 0
     xoffset = yoffset = zoffset = 0;
     theta = 90; //set theta to 30 so you can see more of the car on load
@@ -155,6 +179,9 @@ window.onload = function init() {
             //head turning
             case "9":
                 headlight = !headlight;
+                break;
+            case "8":
+                emergency = !emergency;
                 break;
             case "z":
                 headspin += 1;
@@ -350,20 +377,13 @@ function makeCubeAndBuffer() {
     let wheelThickness = 0.2; // how wide the tire is (x-axis)
     let wheelRadius = 0.35; // tire radius
     // Create a 3D tire (cylinder-like)
-    for (let slice = 0; slice <= 1; slice += 0.1) { // thickness steps
-        let x = wheelCenter[0] + (slice - 0.5) * wheelThickness;
+    for (let slice = 0; slice <= 1; slice += .01) { // thickness steps
+        let x = wheelCenter[0] + (slice - .5) * wheelThickness;
         for (let i = 0; i < wheelpoints; i++) {
             const angle = (i / wheelpoints) * 2 * Math.PI;
             const y = wheelCenter[1] + wheelRadius * Math.sin(angle);
             const z = wheelCenter[2] + wheelRadius * Math.cos(angle);
             cubepoints.push(new vec4(x, y, z, 1.0)); // rim vertex
-            // Give slight shading variation (makes rotation visible)
-            /*cubepoints.push(new vec4(
-                0.1 + 0.9 * Math.abs(Math.sin(angle)),
-                0.1 + 0.9 * Math.abs(Math.cos(angle)),
-                0.1 + 0.9 * (slice),
-                1.0
-            ));*/
             cubepoints.push(new vec4(1, 0, 0, 1));
             let ny = y - wheelCenter[1];
             let nz = z - wheelCenter[2];
@@ -477,13 +497,21 @@ function update() {
             go = false;
         }
     }
+    emergencyR_theta += .05;
+    emergencyB_theta += .05;
     requestAnimationFrame(render);
 }
 function render() {
     // Clear screen
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    let p;
     // Projection
-    let p = perspective(zoom, canvas.clientWidth / canvas.clientHeight, 1.0, 100.0);
+    if (camera == 1) {
+        p = perspective(zoom, canvas.clientWidth / canvas.clientHeight, 1.0, 100.0);
+    }
+    else {
+        p = perspective(45, canvas.clientWidth / canvas.clientHeight, 1.0, 100.0);
+    }
     gl.uniformMatrix4fv(uproj, false, p.flatten());
     // -------------------------------
     // 1. View (Camera)
@@ -522,8 +550,7 @@ function render() {
     //Overhead Light Code
     //-------------------
     if (stationary) {
-        let temp = new vec4(0.0, 20.0, 0.0, 1.0);
-        gl.uniform4fv(light_position, baseLook.mult(temp)); // overhead light
+        gl.uniform4fv(light_position, baseLook.mult(new vec4(0.0, 20.0, 0.0, 1.0))); // overhead light
         gl.uniform4fv(light_color, [1.0, 1.0, 1.0, 1.0]); // white light
     }
     else {
@@ -547,7 +574,7 @@ function render() {
     let headlight2WorldPos = new vec4(xoffset + forwardX * .2 + rightX * .25, yoffset + 0.3, zoffset + forwardZ * .2 + rightZ * .25, 1 // w = 1 for position
     );
     // Headlight direction in world space
-    let headlightWorldDir = new vec4(-forwardX, .2, -forwardZ, 0 // w = 0 for direction vector
+    let headlightWorldDir = new vec4(forwardX, -.1, forwardZ, 0 // w = 0 for direction vector
     );
     // Transform to eye space using the view matrix
     let headlightEyePos = baseLook.mult(headlightWorldPos);
@@ -567,15 +594,42 @@ function render() {
         //gl.uniform4fv(headlight2_position, [0,0,0,1]);
         gl.uniform4fv(headlight_color, [0, 0, 0, 1]);
     }
+    //-------------------------
+    //Emergency Lights
+    //-------------------------
+    if (emergency) {
+        let emergencyWorldPos = new vec4(xoffset, yoffset + 1, // height above car
+        zoffset, 1);
+        let emergencyWorldDir = new vec4(Math.sin(emergencyR_theta), -0.1, // slight downward angle
+        Math.cos(emergencyR_theta), 0 // w=0 for direction
+        );
+        gl.uniform4fv(emergencyR_position, baseLook.mult(emergencyWorldPos));
+        gl.uniform4fv(emergencyR_direction, baseLook.mult(emergencyWorldDir));
+        gl.uniform4fv(emergencyR_color, new vec4(1, 0, 0, 1));
+        gl.uniform1f(emergencyR_cutoff, Math.cos(toradians(15)));
+        gl.uniform1f(emergencyR_exponent, 30);
+        emergencyWorldDir = new vec4(Math.sin(emergencyB_theta), -0.1, // slight downward angle
+        Math.cos(emergencyB_theta), 0 // w=0 for direction
+        );
+        gl.uniform4fv(emergencyB_position, baseLook.mult(emergencyWorldPos));
+        gl.uniform4fv(emergencyB_direction, baseLook.mult(emergencyWorldDir));
+        gl.uniform4fv(emergencyB_color, new vec4(0, 0, 1, 1));
+        gl.uniform1f(emergencyB_cutoff, Math.cos(toradians(15)));
+        gl.uniform1f(emergencyB_exponent, 30);
+    }
+    else {
+        gl.uniform4fv(emergencyR_color, new vec4(0, 0, 0, 1));
+        gl.uniform4fv(emergencyB_color, new vec4(0, 0, 0, 1));
+    }
     //Sets up ambient light
     gl.uniform4fv(light_color, [.7, .7, .7, 1]);
-    gl.uniform4fv(ambient_light, [.05, .05, .05, 1]);
+    gl.uniform4fv(ambient_light, [.01, .01, .01, 1]);
     // -------------------------------
     // 2. Ground
     // -------------------------------
     let groundMV = baseLook;
     groundMV = groundMV.mult(rotateX(90));
-    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.0, 1.0, 0.0, 1.0]);
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.1, 1.0, 0.1, 1.0]);
     gl.vertexAttrib4fv(vSpecularColor, [0.8, 0.8, 0.8, 1.0]);
     gl.vertexAttrib1f(vSpecularExponent, 32.0);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
@@ -589,31 +643,31 @@ function render() {
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(-10, 0, 18)).mult(rotateY(90)).mult(scalem(5, 5, 5));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(-18, 0, -10)).mult(rotateY(90)).mult(scalem(5, 5, 5));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(7, 0, -20)).mult(rotateY(90)).mult(scalem(5, 5, 5));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     groundMV = baseLook;
     groundMV = groundMV.mult(translate(15, 0, 18)).mult(rotateY(90)).mult(scalem(5, 5, 5));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // -------------------------------
     // 3. Car body
     // -------------------------------
@@ -648,7 +702,7 @@ function render() {
     gl.uniformMatrix4fv(umv, false, eyeballMV.flatten());
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // -------------------------------
     // 6. Wheels
     // -------------------------------
@@ -662,7 +716,7 @@ function render() {
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // Front right wheel
     wheelMV = carMV;
     if (go && left)
@@ -674,7 +728,7 @@ function render() {
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // Back left wheel
     wheelMV = carMV
         .mult(translate(-x, -y, -z))
@@ -682,7 +736,7 @@ function render() {
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // Back right wheel
     wheelMV = carMV
         .mult(translate(x, -y, -z))
@@ -691,5 +745,5 @@ function render() {
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-    gl.drawArrays(gl.TRIANGLE_FAN, 43, 89);
+    gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
 }
