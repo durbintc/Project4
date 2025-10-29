@@ -6,7 +6,6 @@ let program;
 let bufferId;
 let umv; //index of model_view in shader
 let uproj; //index of proj
-let umode;
 //where the car will move
 let xoffset;
 let yoffset;
@@ -42,26 +41,15 @@ let carCam = false;
 let headspin = 0;
 let stationary = false;
 let headlight = false;
-let headlight_position;
-let headlight2_position;
-let headlight_direction;
-let headlight_color;
-let headlight_cutoff;
-let headlight_exponent;
-let emergencyR_position;
-let emergencyR_direction;
-let emergencyR_color;
-let emergencyR_cutoff;
-let emergencyR_exponent;
 let emergencyR_theta = 0;
-let emergencyB_position;
-let emergencyB_direction;
-let emergencyB_color;
-let emergencyB_cutoff;
-let emergencyB_exponent;
 let emergencyB_theta = toradians(180);
+let beam_position;
+let beam_direction;
+let beam_color;
+let beam_cutoff;
+let beam_exponent;
 let emergency = false;
-let wp = 1000;
+let wp = 1500;
 import { initShaders, vec4, flatten, perspective, translate, lookAt, rotateX, rotateY, scalem, rotateZ, toradians } from './helperfunctions.js';
 //We want some set up to happen immediately when the page loads
 window.onload = function init() {
@@ -77,7 +65,6 @@ window.onload = function init() {
     gl.useProgram(program); //and we want to use that program for our rendering
     umv = gl.getUniformLocation(program, "model_view");
     uproj = gl.getUniformLocation(program, "projection");
-    umode = gl.getUniformLocation(program, "mode");
     vPosition = gl.getAttribLocation(program, "vPosition");
     vColor = gl.getAttribLocation(program, "vColor");
     vNormal = gl.getAttribLocation(program, "vNormal");
@@ -87,22 +74,11 @@ window.onload = function init() {
     light_position = gl.getUniformLocation(program, "light_position");
     light_color = gl.getUniformLocation(program, "light_color");
     ambient_light = gl.getUniformLocation(program, "ambient_light");
-    headlight_position = gl.getUniformLocation(program, "headlight_position");
-    headlight2_position = gl.getUniformLocation(program, "headlight2_position");
-    headlight_direction = gl.getUniformLocation(program, "headlight_direction");
-    headlight_color = gl.getUniformLocation(program, "headlight_color");
-    headlight_cutoff = gl.getUniformLocation(program, "headlight_cutoff");
-    headlight_exponent = gl.getUniformLocation(program, "headlight_exponent");
-    emergencyR_position = gl.getUniformLocation(program, "emergencyR_position");
-    emergencyR_direction = gl.getUniformLocation(program, "emergencyR_direction");
-    emergencyR_color = gl.getUniformLocation(program, "emergencyR_color");
-    emergencyR_cutoff = gl.getUniformLocation(program, "emergencyR_cutoff");
-    emergencyR_exponent = gl.getUniformLocation(program, "emergencyR_exponent");
-    emergencyB_position = gl.getUniformLocation(program, "emergencyB_position");
-    emergencyB_direction = gl.getUniformLocation(program, "emergencyB_direction");
-    emergencyB_color = gl.getUniformLocation(program, "emergencyB_color");
-    emergencyB_cutoff = gl.getUniformLocation(program, "emergencyB_cutoff");
-    emergencyB_exponent = gl.getUniformLocation(program, "emergencyB_exponent");
+    beam_position = gl.getUniformLocation(program, "beam_position");
+    beam_direction = gl.getUniformLocation(program, "beam_direction");
+    beam_color = gl.getUniformLocation(program, "beam_color");
+    beam_cutoff = gl.getUniformLocation(program, "beam_cutoff");
+    beam_exponent = gl.getUniformLocation(program, "beam_exponent");
     //sets offsets to 0
     xoffset = yoffset = zoffset = 0;
     theta = 90; //set theta to 30 so you can see more of the car on load
@@ -204,7 +180,6 @@ window.onload = function init() {
         }
         requestAnimationFrame(render);
     });
-    gl.uniform1i(umode, 2);
     //We'll split this off to its own function for clarity, but we need something to make a picture of
     makeCubeAndBuffer();
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -220,122 +195,86 @@ function makeCube(x, y, z) {
     let normalFront = new vec4(0.0, 0.0, 1.0, 0.0);
     //front
     cubepoints.push(new vec4(x, -y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 1.0, 1.0)); //cyan
     cubepoints.push(normalFront);
     cubepoints.push(new vec4(x, y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 1.0, 1.0));
     cubepoints.push(normalFront);
     cubepoints.push(new vec4(-x, y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 1.0, 1.0));
     cubepoints.push(normalFront);
     cubepoints.push(new vec4(-x, y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 1.0, 1.0));
     cubepoints.push(normalFront);
     cubepoints.push(new vec4(-x, -y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 1.0, 1.0));
     cubepoints.push(normalFront);
     cubepoints.push(new vec4(x, -y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 1.0, 1.0));
     cubepoints.push(normalFront);
     let normalBack = new vec4(0.0, 0.0, -1.0, 0.0);
     //back face
     cubepoints.push(new vec4(-x, -y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 1.0, 1.0)); //magenta
     cubepoints.push(normalBack);
     cubepoints.push(new vec4(-x, y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalBack);
     cubepoints.push(new vec4(x, y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalBack);
     cubepoints.push(new vec4(x, y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalBack);
     cubepoints.push(new vec4(x, -y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalBack);
     cubepoints.push(new vec4(-x, -y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalBack);
     let normalLeft = new vec4(1.0, 0.0, 0.0, 0.0);
     //left face
     cubepoints.push(new vec4(x, y, z, 1.0));
-    cubepoints.push(new vec4(1.0, 1.0, 0.0, 1.0)); //yellow
     cubepoints.push(normalLeft);
     cubepoints.push(new vec4(x, -y, z, 1.0));
-    cubepoints.push(new vec4(1.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalLeft);
     cubepoints.push(new vec4(x, -y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalLeft);
     cubepoints.push(new vec4(x, -y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalLeft);
     cubepoints.push(new vec4(x, y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalLeft);
     cubepoints.push(new vec4(x, y, z, 1.0));
-    cubepoints.push(new vec4(1.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalLeft);
     let normalRight = new vec4(-1.0, 0.0, 0.0, 0.0);
     //right face
     cubepoints.push(new vec4(-x, y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 0.0, 1.0)); //red
     cubepoints.push(normalRight);
     cubepoints.push(new vec4(-x, -y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 0.0, 1.0));
     cubepoints.push(normalRight);
     cubepoints.push(new vec4(-x, -y, z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 0.0, 1.0));
     cubepoints.push(normalRight);
     cubepoints.push(new vec4(-x, -y, z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 0.0, 1.0));
     cubepoints.push(normalRight);
     cubepoints.push(new vec4(-x, y, z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 0.0, 1.0));
     cubepoints.push(normalRight);
     cubepoints.push(new vec4(-x, y, -z, 1.0));
-    cubepoints.push(new vec4(1.0, 0.0, 0.0, 1.0));
     cubepoints.push(normalRight);
     let normalTop = new vec4(0.0, 1.0, 0.0, 0.0);
     //top
     cubepoints.push(new vec4(x, y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 0.0, 1.0, 1.0)); //blue
     cubepoints.push(normalTop);
     cubepoints.push(new vec4(x, y, -z, 1.0));
-    cubepoints.push(new vec4(0.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalTop);
     cubepoints.push(new vec4(-x, y, -z, 1.0));
-    cubepoints.push(new vec4(0.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalTop);
     cubepoints.push(new vec4(-x, y, -z, 1.0));
-    cubepoints.push(new vec4(0.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalTop);
     cubepoints.push(new vec4(-x, y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalTop);
     cubepoints.push(new vec4(x, y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 0.0, 1.0, 1.0));
     cubepoints.push(normalTop);
     let normalBottom = new vec4(0.0, -1.0, 0.0, 0.0);
     //bottom
     cubepoints.push(new vec4(x, -y, -z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 1.0)); //green
     cubepoints.push(normalBottom);
     cubepoints.push(new vec4(x, -y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalBottom);
     cubepoints.push(new vec4(-x, -y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalBottom);
     cubepoints.push(new vec4(-x, -y, z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalBottom);
     cubepoints.push(new vec4(-x, -y, -z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalBottom);
     cubepoints.push(new vec4(x, -y, -z, 1.0));
-    cubepoints.push(new vec4(0.0, 1.0, 0.0, 1.0));
     cubepoints.push(normalBottom);
     return cubepoints;
 }
@@ -347,22 +286,16 @@ function makeCubeAndBuffer() {
     y = 30;
     z = .6;
     cubepoints.push(new vec4(-x, -y, z, 1));
-    cubepoints.push(new vec4(0, 1, 0, 1));
     cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(x, -y, z, 1));
-    cubepoints.push(new vec4(0, 1, 0, 1));
     cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(-x, y, z, 1));
-    cubepoints.push(new vec4(0, 1, 0, 1));
     cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(-x, y, z, 1));
-    cubepoints.push(new vec4(0, 1, 0, 1));
     cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(x, -y, z, 1));
-    cubepoints.push(new vec4(0, 1, 0, 1));
     cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     cubepoints.push(new vec4(x, y, z, 1));
-    cubepoints.push(new vec4(0, 1, 0, 1));
     cubepoints.push(new vec4(0.0, 0.0, -1.0, 0.0));
     //creates the car
     x = .5;
@@ -371,10 +304,9 @@ function makeCubeAndBuffer() {
     cubepoints.push(...makeCube(x, y, z));
     let wheelCenter = [0, 0, 0, 1.0]; // x, y, z, w
     cubepoints.push(new vec4(...wheelCenter)); // center position
-    cubepoints.push(new vec4(1.0, 1.0, 1.0, 1.0)); // white center color
     cubepoints.push(new vec4(1.0, 0.0, 0.0, 0.0)); // normal (X-axis)
-    let wheelpoints = 8; // smoother wheel
-    let wheelThickness = 0.2; // how wide the tire is (x-axis)
+    let wheelpoints = 20; // smoother wheel
+    let wheelThickness = .5; // how wide the tire is (x-axis)
     let wheelRadius = 0.35; // tire radius
     // Create a 3D tire (cylinder-like)
     for (let slice = 0; slice <= 1; slice += .01) { // thickness steps
@@ -384,7 +316,6 @@ function makeCubeAndBuffer() {
             const y = wheelCenter[1] + wheelRadius * Math.sin(angle);
             const z = wheelCenter[2] + wheelRadius * Math.cos(angle);
             cubepoints.push(new vec4(x, y, z, 1.0)); // rim vertex
-            cubepoints.push(new vec4(1, 0, 0, 1));
             let ny = y - wheelCenter[1];
             let nz = z - wheelCenter[2];
             let len = Math.sqrt(ny * ny + nz * nz);
@@ -403,14 +334,9 @@ function makeCubeAndBuffer() {
     //What is this data going to be used for?
     //The vertex shader has an attribute named "vPosition".  Let's associate part of this data to that attribute
     vPosition = gl.getAttribLocation(program, "vPosition");
-    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 48, 0);
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 32, 0);
     gl.enableVertexAttribArray(vPosition);
-    //The vertex shader also has an attribute named "vColor".  Let's associate the other part of this data to that attribute
-    //vColor = gl.getAttribLocation(program, "vColor");
-    //gl.vertexAttribPointer(vColor, 4, gl.FLOAT, false, 48, 16);
-    //gl.enableVertexAttribArray(vColor);
-    //vNormal = gl.getAttribLocation(program, "vNormal");
-    gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 48, 32);
+    gl.vertexAttribPointer(vNormal, 4, gl.FLOAT, false, 32, 16);
     gl.enableVertexAttribArray(vNormal);
 }
 //increase rotation angle and request new frame
@@ -580,47 +506,57 @@ function render() {
     let headlightEyePos = baseLook.mult(headlightWorldPos);
     let headlight2EyePos = baseLook.mult(headlight2WorldPos);
     let headlightEyeDir = baseLook.mult(headlightWorldDir);
-    if (headlight) {
-        // Send eye-space values to shader
-        gl.uniform4fv(headlight_position, headlightEyePos);
-        gl.uniform4fv(headlight2_position, headlight2EyePos);
-        gl.uniform4fv(headlight_direction, headlightEyeDir);
-        gl.uniform4fv(headlight_color, [0.2, 0.2, 0.15, 1]); // Warmer, dimmer headlight
-        gl.uniform1f(headlight_cutoff, Math.cos(toradians(15)));
-        gl.uniform1f(headlight_exponent, 30);
-    }
-    else {
-        //gl.uniform4fv(headlight_position, [0,0,0,1]);
-        //gl.uniform4fv(headlight2_position, [0,0,0,1]);
-        gl.uniform4fv(headlight_color, [0, 0, 0, 1]);
-    }
     //-------------------------
     //Emergency Lights
     //-------------------------
-    if (emergency) {
-        let emergencyWorldPos = new vec4(xoffset, yoffset + 1, // height above car
-        zoffset, 1);
-        let emergencyWorldDir = new vec4(Math.sin(emergencyR_theta), -0.1, // slight downward angle
-        Math.cos(emergencyR_theta), 0 // w=0 for direction
-        );
-        gl.uniform4fv(emergencyR_position, baseLook.mult(emergencyWorldPos));
-        gl.uniform4fv(emergencyR_direction, baseLook.mult(emergencyWorldDir));
-        gl.uniform4fv(emergencyR_color, new vec4(1, 0, 0, 1));
-        gl.uniform1f(emergencyR_cutoff, Math.cos(toradians(15)));
-        gl.uniform1f(emergencyR_exponent, 30);
-        emergencyWorldDir = new vec4(Math.sin(emergencyB_theta), -0.1, // slight downward angle
-        Math.cos(emergencyB_theta), 0 // w=0 for direction
-        );
-        gl.uniform4fv(emergencyB_position, baseLook.mult(emergencyWorldPos));
-        gl.uniform4fv(emergencyB_direction, baseLook.mult(emergencyWorldDir));
-        gl.uniform4fv(emergencyB_color, new vec4(0, 0, 1, 1));
-        gl.uniform1f(emergencyB_cutoff, Math.cos(toradians(15)));
-        gl.uniform1f(emergencyB_exponent, 30);
+    let emergencyWorldPos = new vec4(xoffset, yoffset + 1, // height above car
+    zoffset, 1);
+    let emergencyRWorldDir = new vec4(Math.sin(emergencyR_theta), -0.1, // slight downward angle
+    Math.cos(emergencyR_theta), 0 // w=0 for direction
+    );
+    const emergencyBWorldDir = new vec4(Math.sin(emergencyB_theta), -0.1, // slight downward angle
+    Math.cos(emergencyB_theta), 0 // w=0 for direction
+    );
+    const lightPositions = new Float32Array([
+        ...headlightEyePos,
+        ...headlight2EyePos,
+        ...baseLook.mult(emergencyWorldPos), // emergency blue
+        ...baseLook.mult(emergencyWorldPos), // emergency red
+    ]);
+    const lightDirections = new Float32Array([
+        ...headlightEyeDir,
+        ...headlightEyeDir,
+        ...baseLook.mult(emergencyRWorldDir),
+        ...baseLook.mult(emergencyBWorldDir)
+    ]);
+    let headlightCol;
+    if (headlight) {
+        headlightCol = new vec4(.2, .2, 0.15, 1);
     }
     else {
-        gl.uniform4fv(emergencyR_color, new vec4(0, 0, 0, 1));
-        gl.uniform4fv(emergencyB_color, new vec4(0, 0, 0, 1));
+        headlightCol = new vec4(0, 0, 0, 0);
     }
+    let emergencyRCol;
+    let emergencyBCol;
+    if (emergency) {
+        emergencyRCol = new vec4(1, 0, 0, 1);
+        emergencyBCol = new vec4(0, 0, 1, 1);
+    }
+    else {
+        emergencyRCol = new vec4(0, 0, 0, 0);
+        emergencyBCol = new vec4(0, 0, 0, 0);
+    }
+    const lightColors = new Float32Array([
+        ...headlightCol,
+        ...headlightCol,
+        ...emergencyRCol,
+        ...emergencyBCol,
+    ]);
+    gl.uniform4fv(beam_position, lightPositions);
+    gl.uniform4fv(beam_direction, lightDirections);
+    gl.uniform4fv(beam_color, lightColors);
+    gl.uniform1f(beam_cutoff, Math.cos(toradians(15)));
+    gl.uniform1f(beam_exponent, 30);
     //Sets up ambient light
     gl.uniform4fv(light_color, [.7, .7, .7, 1]);
     gl.uniform4fv(ambient_light, [.01, .01, .01, 1]);
@@ -629,7 +565,7 @@ function render() {
     // -------------------------------
     let groundMV = baseLook;
     groundMV = groundMV.mult(rotateX(90));
-    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.1, 1.0, 0.1, 1.0]);
+    gl.vertexAttrib4fv(vAmbientDiffuseColor, [0.5, .5, 0.5, 1.0]);
     gl.vertexAttrib4fv(vSpecularColor, [0.8, 0.8, 0.8, 1.0]);
     gl.vertexAttrib1f(vSpecularExponent, 32.0);
     gl.uniformMatrix4fv(umv, false, groundMV.flatten());
@@ -712,7 +648,7 @@ function render() {
         wheelMV = wheelMV.mult(rotateZ(-10));
     if (go && right)
         wheelMV = wheelMV.mult(rotateZ(10));
-    wheelMV = wheelMV.mult(translate(-x, -y, z)).mult(rotateX(wheelRotate));
+    wheelMV = wheelMV.mult(translate(-x / 1.3, -y, z)).mult(rotateX(wheelRotate));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
     gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
@@ -723,7 +659,7 @@ function render() {
         wheelMV = wheelMV.mult(rotateZ(-10));
     if (go && right)
         wheelMV = wheelMV.mult(rotateZ(10));
-    wheelMV = wheelMV.mult(translate(x, -y, z)).mult(rotateX(wheelRotate))
+    wheelMV = wheelMV.mult(translate(x / 1.3, -y, z)).mult(rotateX(wheelRotate))
         .mult(rotateY(180));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
@@ -731,7 +667,7 @@ function render() {
     gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // Back left wheel
     wheelMV = carMV
-        .mult(translate(-x, -y, -z))
+        .mult(translate(-x / 1.3, -y, -z))
         .mult(rotateX(wheelRotate));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);
     gl.uniformMatrix4fv(umv, false, wheelMV.flatten());
@@ -739,7 +675,7 @@ function render() {
     gl.drawArrays(gl.TRIANGLE_FAN, 43, wp);
     // Back right wheel
     wheelMV = carMV
-        .mult(translate(x, -y, -z))
+        .mult(translate(x / 1.3, -y, -z))
         .mult(rotateX(wheelRotate))
         .mult(rotateY(180));
     gl.vertexAttrib4fv(vAmbientDiffuseColor, [1.0, 0.0, 0.0, 1.0]);

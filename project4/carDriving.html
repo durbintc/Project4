@@ -22,44 +22,29 @@ out float specularExponent;
 
 uniform mat4 model_view;
 uniform mat4 projection;
-uniform int mode; //0: unlit, 1:Gouraud, 2: Phong, 3: Cel
 uniform vec4 light_position;
 uniform vec4 light_color;
 uniform vec4 ambient_light;
 
-uniform vec4 headlight_position;
-uniform vec4 headlight2_position;
-uniform vec4 headlight_direction;
-uniform vec4 headlight_color;
-uniform float headlight_cutoff;
-uniform float headlight_exponent;
-
-uniform vec4 emergencyR_position;
-uniform vec4 emergencyR_direction;
-uniform vec4 emergencyR_color;
-uniform float emergencyR_cutoff;
-uniform float emergencyR_exponent;
-
-uniform vec4 emergencyB_position;
-uniform vec4 emergencyB_direction;
-uniform vec4 emergencyB_color;
-uniform float emergencyB_cutoff;
-uniform float emergencyB_exponent;
+uniform vec4 beam_position[4];
+uniform vec4 beam_direction[4];
+uniform vec4 beam_color[4];
+uniform float beam_cutoff;
+uniform float beam_exponent;
 
 void
 main()
 {
 	gl_Position = vec4(0, 0, 0, 1); //to make the shader compiler happy
-    if (mode == 2){
-        position = vPosition;
-        ambientDiffuseColor = vAmbientDiffuseColor;
-        normal = vNormal;
-        specularColor = vSpecularColor;
-        specularExponent = vSpecularExponent;
+
+    position = vPosition;
+    ambientDiffuseColor = vAmbientDiffuseColor;
+    normal = vNormal;
+    specularColor = vSpecularColor;
+    specularExponent = vSpecularExponent;
 
 
-        gl_Position = projection * model_view * vPosition;
-	}
+    gl_Position = projection * model_view * vPosition;
 }
 
     </script>
@@ -78,29 +63,15 @@ in float specularExponent;
 
 uniform mat4 model_view;
 uniform mat4 projection;
-uniform int mode; //0: unlit, 1:Gouraud, 2: Phong, 3: Cel
 uniform vec4 light_position;
 uniform vec4 light_color;
 uniform vec4 ambient_light;
 
-uniform vec4 headlight_position;
-uniform vec4 headlight2_position;
-uniform vec4 headlight_direction;
-uniform vec4 headlight_color;
-uniform float headlight_cutoff;
-uniform float headlight_exponent;
-
-uniform vec4 emergencyR_position;
-uniform vec4 emergencyR_direction;
-uniform vec4 emergencyR_color;
-uniform float emergencyR_cutoff;
-uniform float emergencyR_exponent;
-
-uniform vec4 emergencyB_position;
-uniform vec4 emergencyB_direction;
-uniform vec4 emergencyB_color;
-uniform float emergencyB_cutoff;
-uniform float emergencyB_exponent;
+uniform vec4 beam_position[4];
+uniform vec4 beam_direction[4];
+uniform vec4 beam_color[4];
+uniform float beam_cutoff;
+uniform float beam_exponent;
 
 out vec4  fColor;
 
@@ -110,31 +81,31 @@ void main()
 	vec4 diff = vec4(0,0,0,1);
 	vec4 spec = vec4(0,0,0,1);
 
-    if(mode == 2){
-	    vec4 veyepos = model_view * position;
-        vec3 L = normalize(light_position.xyz - veyepos.xyz);
-        vec3 V = normalize(-veyepos.xyz);
-        vec3 N = normalize((model_view * normal).xyz);
-        vec3 R = reflect(-L, N); //vector from light source, reflected across normal
+    vec4 veyepos = model_view * position;
+    vec3 L = normalize(light_position.xyz - veyepos.xyz);
+    vec3 V = normalize(-veyepos.xyz);
+    vec3 N = normalize((model_view * normal).xyz);
+    vec3 R = reflect(-L, N); //vector from light source, reflected across normal
 
-        amb = ambientDiffuseColor * ambient_light;
-        diff = max(dot(L, N), 0.0) * ambientDiffuseColor * light_color;
-        spec = pow(max(dot(R, V), 0.0), specularExponent) * specularColor * light_color;
+    amb = ambientDiffuseColor * ambient_light;
+    diff = max(dot(L, N), 0.0) * ambientDiffuseColor * light_color;
+    spec = pow(max(dot(R, V), 0.0), specularExponent) * specularColor * light_color;
 
-        if (dot(L, N) < 0.0){
-            spec = vec4(0,0,0,1); //no glare beyond the horizon
-        }
+    if (dot(L, N) < 0.0){
+        spec = vec4(0,0,0,1); //no glare beyond the horizon
+    }
 
-        vec3 F = headlight_position.xyz;  // flashlight position in eye space
+    for (int i = 0; i < 4; i++) {
+        vec3 F = beam_position[i].xyz;  // flashlight position in eye space
         vec3 S = veyepos.xyz;  // surface/fragment position in eye space
-        vec3 lightDirection = normalize(headlight_direction.xyz);
+        vec3 lightDirection = normalize(beam_direction[i].xyz);
 
-        if (dot(lightDirection, normalize(S - F)) >= headlight_cutoff) {
+        if (dot(lightDirection, normalize(S - F)) >= beam_cutoff) {
             vec3 headL = normalize(S - F);  // light direction: from light TO surface
-            vec4 headDiff = ambientDiffuseColor * headlight_color;
+            vec4 headDiff = ambientDiffuseColor * beam_color[i];
 
             vec3 headR = reflect(-headL, N);
-            vec4 headSpec = pow(max(dot(headR, V), 0.0), headlight_exponent) * specularColor * headlight_color;
+            vec4 headSpec = pow(max(dot(headR, V), 0.0), beam_exponent) * specularColor * beam_color[i];
 
             if (dot(headL, N) < 0.0){
                 headSpec = vec4(0,0,0,1);
@@ -143,59 +114,9 @@ void main()
             diff += headDiff;
             spec += headSpec;
         }
+    }
 
-        vec3 F2 = headlight2_position.xyz;
-        if (dot(lightDirection, normalize(S - F2)) >= headlight_cutoff) {
-            vec3 headL = normalize(S - F2);
-            vec4 headDiff = ambientDiffuseColor * headlight_color;
-
-            vec3 headR = reflect(-headL, N);
-            vec4 headSpec = pow(max(dot(headR, V), 0.0), headlight_exponent) * specularColor * headlight_color;
-
-            if (dot(headL, N) < 0.0){
-                headSpec = vec4(0,0,0,1);
-            }
-
-            diff += headDiff;
-            spec += headSpec;
-        }
-
-        vec3 erF = emergencyR_position.xyz;
-        vec3 lightDirectionR = normalize(emergencyR_direction.xyz);
-        if (dot(lightDirectionR, normalize(S - erF)) >= emergencyR_cutoff) {
-            vec3 headL = normalize(S - erF);
-            vec4 headDiff = ambientDiffuseColor * emergencyR_color;
-
-            vec3 headR = reflect(-headL, N);
-            vec4 headSpec = pow(max(dot(headR, V), 0.0), emergencyR_exponent) * specularColor * emergencyR_color;
-
-            if (dot(headL, N) < 0.0){
-                headSpec = vec4(0,0,0,1);
-            }
-
-            diff += headDiff;
-            spec += headSpec;
-        }
-
-        vec3 ebF = emergencyB_position.xyz;
-        vec3 lightDirectionB = normalize(emergencyB_direction.xyz);
-        if (dot(lightDirectionB, normalize(S - ebF)) >= emergencyB_cutoff) {
-            vec3 headL = normalize(S - ebF);
-            vec4 headDiff = ambientDiffuseColor * emergencyB_color;
-
-            vec3 headR = reflect(-headL, N);
-            vec4 headSpec = pow(max(dot(headR, V), 0.0), emergencyB_exponent) * specularColor * emergencyB_color;
-
-            if (dot(headL, N) < 0.0){
-                headSpec = vec4(0,0,0,1);
-            }
-
-            diff += headDiff;
-            spec += headSpec;
-        }
-
-        fColor = amb + diff + spec;
-	}
+    fColor = amb + diff + spec;
 
 
 }
