@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Transformation</title>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">#version 300 es
+precision mediump float;
+precision lowp int;
+in vec4 vPosition;
+in vec4 vAmbientDiffuseColor;
+in vec4 vNormal;
+in vec4 vSpecularColor;
+in float vSpecularExponent;
+
+out vec4 color;
+out vec4 position;
+out vec4 ambientDiffuseColor;
+out vec4 normal;
+out vec4 specularColor;
+out float specularExponent;
+
+uniform mat4 model_view;
+uniform mat4 projection;
+uniform vec4 light_position;
+uniform vec4 light_color;
+uniform vec4 ambient_light;
+
+uniform vec4 beam_position[4];
+uniform vec4 beam_direction[4];
+uniform vec4 beam_color[4];
+uniform float beam_cutoff;
+uniform float beam_exponent;
+
+void
+main()
+{
+	gl_Position = vec4(0, 0, 0, 1); //to make the shader compiler happy
+
+    position = vPosition;
+    ambientDiffuseColor = vAmbientDiffuseColor;
+    normal = vNormal;
+    specularColor = vSpecularColor;
+    specularExponent = vSpecularExponent;
+
+
+    gl_Position = projection * model_view * vPosition;
+}
+
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">#version 300 es
+precision mediump float;
+precision lowp int;
+
+in vec4 color;
+in vec4 position;
+in vec4 ambientDiffuseColor;
+in vec4 normal;
+in vec4 specularColor;
+in float specularExponent;
+
+
+uniform mat4 model_view;
+uniform mat4 projection;
+uniform vec4 light_position;
+uniform vec4 light_color;
+uniform vec4 ambient_light;
+
+uniform vec4 beam_position[4];
+uniform vec4 beam_direction[4];
+uniform vec4 beam_color[4];
+uniform float beam_cutoff;
+uniform float beam_exponent;
+
+out vec4  fColor;
+
+void main()
+{
+	vec4 amb = vec4(0,0,0,1);
+	vec4 diff = vec4(0,0,0,1);
+	vec4 spec = vec4(0,0,0,1);
+
+    vec4 veyepos = model_view * position;
+    vec3 L = normalize(light_position.xyz - veyepos.xyz);
+    vec3 V = normalize(-veyepos.xyz);
+    vec3 N = normalize((model_view * normal).xyz);
+    vec3 R = reflect(-L, N); //vector from light source, reflected across normal
+
+    amb = ambientDiffuseColor * ambient_light;
+    diff = max(dot(L, N), 0.0) * ambientDiffuseColor * light_color;
+    spec = pow(max(dot(R, V), 0.0), specularExponent) * specularColor * light_color;
+
+    if (dot(L, N) < 0.0){
+        spec = vec4(0,0,0,1); //no glare beyond the horizon
+    }
+
+    for (int i = 0; i < 4; i++) {
+        vec3 F = beam_position[i].xyz;  // flashlight position in eye space
+        vec3 S = veyepos.xyz;  // surface/fragment position in eye space
+        vec3 lightDirection = normalize(beam_direction[i].xyz);
+
+        if (dot(lightDirection, normalize(S - F)) >= beam_cutoff) {
+            vec3 headL = normalize(S - F);  // light direction: from light TO surface
+            vec4 headDiff = ambientDiffuseColor * beam_color[i];
+
+            vec3 headR = reflect(-headL, N);
+            vec4 headSpec = pow(max(dot(headR, V), 0.0), beam_exponent) * specularColor * beam_color[i];
+
+            if (dot(headL, N) < 0.0){
+                headSpec = vec4(0,0,0,1);
+            }
+
+            diff += headDiff;
+            spec += headSpec;
+        }
+    }
+
+    fColor = amb + diff + spec;
+
+
+}
+
+    </script>
+
+    <script type="module" src="carDriving.js "></script>
+</head>
+<body>
+<div>Practicing transformation matrices</div>
+<canvas id="gl-canvas" width="512" height="512">
+    Sorry; your web browser doesn't support HTML5's canvas element.
+</canvas>
+</body>
+</html>
